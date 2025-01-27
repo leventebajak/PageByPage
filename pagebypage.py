@@ -2,9 +2,10 @@ import argparse
 import os.path
 import sys
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog
 
-from processing import process
+from processing import iterate, process
 
 
 def parse_page_param(pages: str) -> set[int]:
@@ -58,6 +59,7 @@ def parse_arguments():
             parser.error(f'The output path {output} is a directory.')
         if os.path.exists(output):
             overwrite = yes_no_question(f'The output file {output} already exists. Overwrite?')
+            print()
             if not overwrite:
                 print('Exiting.')
                 sys.exit(1)
@@ -65,9 +67,10 @@ def parse_arguments():
     return document, prompt, pages, output
 
 
-def ask_parameters():
+def ask_parameters(save_output: bool = None):
     output = None
-    save_output = yes_no_question('Would you like to save the output to a file?')
+    if save_output is None:
+        save_output = yes_no_question('Would you like to save the output to a file?')
 
     try:
         root = tk.Tk()
@@ -120,6 +123,13 @@ def ask_parameters():
 if __name__ == '__main__':
     document, prompt, pages, output = parse_arguments() if len(sys.argv) > 1 else ask_parameters()
 
-    print('Processing...')
+    if output is not None:
+        output = Path(output)
+        if output.is_dir():
+            raise ValueError(f'The output path {output} is a directory.')
+        if output.exists():
+            output.unlink()
 
-    process(document, prompt, pages, output)
+    print('Processing...\n')
+
+    iterate(lambda page_prompt, page_number: process(page_prompt, page_number, output), document, prompt, pages)

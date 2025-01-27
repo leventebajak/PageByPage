@@ -3,7 +3,7 @@ from llama_index.core import PromptTemplate
 from llama_index.readers.file import PyMuPDFReader
 from llama_index.llms.ollama import Ollama
 
-llm = Ollama(model="llama3.2")
+llm = Ollama(model="llama3.2")  # TODO: Change to the model to 3.1
 
 template = """
 Your task is to process a document page by page. You can only see one page at a time.
@@ -27,15 +27,8 @@ Here is the completed task:
 """
 
 
-def process(document: str, prompt: str, pages: set = None, output: str = None):
+def iterate(callback, document: str, prompt: str, pages: set = None):
     document = Path(document)
-
-    if output is not None:
-        output = Path(output)
-        if output.is_dir():
-            raise ValueError(f'The output path {output} is a directory.')
-        if output.exists():
-            output.unlink()
 
     docs = PyMuPDFReader().load(file_path=document)
 
@@ -57,16 +50,28 @@ def process(document: str, prompt: str, pages: set = None, output: str = None):
             prompt=prompt,
         )
 
-        response = ""
-        for completion in llm.stream_complete(page_prompt):
-            response += completion.delta
-            print(completion.delta, end="")
-        print("\n")
-
-        if response.strip().rstrip('.!').lower() == "i cannot complete this task":
-            print("Plase try a different prompt.")
+        try:
+            callback(page_prompt, page)
+        except InvalidPromptError:
             break
 
-        if output is not None:
-            with output.open('a', encoding='utf-8') as f:
-                f.write(f"Page {page}:\n\n{response}\n\n--------------------------------\n\n")
+
+def process(page_prompt: str, page_number: int, output: Path = None):
+    response = ""
+    for completion in llm.stream_complete(page_prompt):
+        response += completion.delta
+        print(completion.delta, end="")
+
+    if response.strip().rstrip('.!').lower() == "i cannot complete this task":
+        print("Please try a different prompt.")
+        raise InvalidPromptError()
+
+    print("\n\n--------------------------------\n")
+
+    if output is not None:
+        with output.open('a', encoding='utf-8') as f:
+            f.write(f"Page {page_number}:\n\n{response}\n\n--------------------------------\n\n")
+
+
+class InvalidPromptError(Exception):
+    pass
