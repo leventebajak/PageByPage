@@ -3,7 +3,7 @@ from llama_index.core import PromptTemplate
 from llama_index.readers.file import PyMuPDFReader
 from llama_index.llms.ollama import Ollama
 
-llm = Ollama(model="llama3.2")  # TODO: Change to the model to 3.1
+llm = Ollama(model="llama3.1")
 
 template = """
 Your task is to process a document page by page. You can only see one page at a time.
